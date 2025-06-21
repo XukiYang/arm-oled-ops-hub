@@ -8,8 +8,8 @@ set(CMAKE_CXX_STANDARD 17) # C++标准 (11/14/17/20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON) # 强制使用指定标准
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON) # 生成 compile_commands.json
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/output)
-include_directories(include) # 头文件搜索路径
 
+include_directories(include) # 头文件搜索路径
 set(SOURCES main.cpp)
 
 add_executable(${PROJECT_NAME} ${SOURCES})
@@ -18,6 +18,20 @@ add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/configs
     COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/logs
     COMMENT "Makeing some directory"
+)
+
+# 创建存放目录
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/configs
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/logs
+    COMMENT "Makeing some directory"
+)
+# 拷贝静态文件
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy
+    ${PROJECT_SOURCE_DIR}/configs/*
+    ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/configs
+    COMMENT "Copying configs/*.ini to output/configs directory"
 )
 
 install(DIRECTORY include/ DESTINATION include) # 安装头文件
