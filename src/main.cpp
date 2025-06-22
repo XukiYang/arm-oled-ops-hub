@@ -14,19 +14,19 @@ int main(int argc, char const *argv[]) {
 
   while (true) {
 
-    for (uint32_t i = 0; i < 3; i++) {
+    for (uint32_t i = 0; i < 30; i++) {
       auto dev_temp_info = system_monitor.GetDevTempInfo();
       ui_manager.DrawDevTempPage(dev_temp_info);
-      sleep(1);
+      std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 
-    for (uint32_t i = 0; i < 3; i++) {
+    for (uint32_t i = 0; i < 30; i++) {
       double cpu_usage = system_monitor.GetCpuUsage();
-      double mem_usage = system_monitor.GetMemUsage();
+      auto dev_mem_info = system_monitor.GetMemInfo();
       auto dev_disk_info = system_monitor.GetDiskInfo("/");
-      ui_manager.DrawDevMemAndDiskAndCpuUsagePage(cpu_usage, mem_usage,
+      ui_manager.DrawDevMemAndDiskAndCpuUsagePage(cpu_usage, dev_mem_info,
                                                   dev_disk_info);
-      sleep(1);
+      std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
   }
 

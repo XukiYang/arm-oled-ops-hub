@@ -52,15 +52,6 @@ public:
     ssd1315_display_.RefreshDisplay();
   };
 
-  /// @brief 创建系统信息UI
-  void CreateSystemInfoUi(CpuInfo &cpu_info, DiskInfo &disk_info) {
-    // 清空显示缓冲区
-    ssd1315_display_.ClearDisplay();
-    // 绘制边框
-    ssd1315_display_.DrawRect(0, 0, ssd1315_display_.Width(),
-                              ssd1315_display_.Height(), 1);
-  };
-
   /// @brief 绘制设备温度UI
   /// @param dev_temp
   void DrawDevTempPage(DevTempInfo &dev_temp) {
@@ -93,7 +84,7 @@ public:
   };
 
   /// @brief 绘制CPU使用率&内存&磁盘页面
-  void DrawDevMemAndDiskAndCpuUsagePage(double cpu_usage, double mem_usage,
+  void DrawDevMemAndDiskAndCpuUsagePage(double cpu_usage, MemInfo mem_info,
                                         DiskInfo &disk_info) {
     // 清空显示缓冲区
     ssd1315_display_.ClearDisplay();
@@ -109,9 +100,10 @@ public:
     ssd1315_display_.DrawString((128 / 2) + 5, 45, "ALL", 1, 1);
 
     ssd1315_display_.DrawString(5 + 20, 25, FormatPercentage(cpu_usage), 1, 1);
-    ssd1315_display_.DrawString(5 + 20, 45, FormatPercentage(mem_usage), 1, 1);
+    ssd1315_display_.DrawString(5 + 20, 45,
+                                FormatPercentage(mem_info.usage_percent), 1, 1);
     ssd1315_display_.DrawString((128 / 2) + 5 + 20, 25,
-                                FormatPercentage(disk_info.usage), 1, 1);
+                                FormatPercentage(disk_info.usage_percent), 1, 1);
     ssd1315_display_.DrawString(
         (128 / 2) + 5 + 20, 45,
         FormatStorageGB(disk_info.total_bytes / 1024 / 1024 / 1024), 1, 1);

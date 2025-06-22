@@ -12,27 +12,20 @@
 
 /// @brief 温度信息
 struct DevTempInfo {
-  double cpu_t;
-  double ddr_t;
-  double gpu_t;
-  double ve_t;
+  double cpu_t{0}; // CPU温度(摄氏度)
+  double ddr_t{0}; // DDR温度(摄氏度)
+  double gpu_t{0}; // GPU温度(摄氏度)
+  double ve_t{0};  // VE温度(摄氏度)
 };
 
 /// @brief cpu信息
-struct CpuInfo {
-  unsigned long user; // 用户态运行时间（不包括低优先级进程）
-  unsigned long nice; // 低优先级（nice）用户态进程运行时间
-  unsigned long system;     // 内核态运行时间
-  unsigned long idle;       // 空闲时间（不包括 IO 等待时间）
-  unsigned long iowait;     // 等待 I/O 操作完成的时间
-  unsigned long irq;        // 处理硬件中断的时间
-  unsigned long softirq;    // 处理软件中断的时间
-  unsigned long steal;      // 虚拟环境下被 hypervisor 偷走的时间
-  unsigned long guest;      // 运行普通 guest 虚拟机的时间
-  unsigned long guest_nice; // 运行低优先级 guest 虚拟机的时间
+struct CpuTimeStamp {
+  uint64_t idle{0};  // idle + iowait
+  uint64_t total{0}; // 所有状态的总和
+  std::chrono::steady_clock::time_point time;
 };
 
-/// @brief 磁盘
+/// @brief 磁盘信息
 struct DiskInfo {
   std::string mount_point;   // 挂载点路径
   uint64_t block_size;       // 文件系统块大小(字节)
@@ -42,7 +35,20 @@ struct DiskInfo {
   uint64_t total_bytes;      // 总空间(字节)
   uint64_t free_bytes;       // 空闲空间(字节)
   uint64_t available_bytes;  // 可用空间(字节)
-  double usage;              // 使用率百分比(0-100)
+  double usage_percent;      // 使用率百分比(0-100)
+};
+
+/// @brief CPU 核心统计信息
+struct CpuCoreStats {
+  unsigned long idle{0};  // 空闲时间（包括 IO 等待）
+  unsigned long total{0}; // 总时间
+};
+
+/// @brief 内存使用信息
+struct MemInfo {
+  double total_mb{0};      // 总内存 (MB)
+  double used_mb{0};       // 已用内存 (MB)
+  double usage_percent{0}; // 使用率百分比(0-100)
 };
 
 /// @brief 系统监控
@@ -52,66 +58,76 @@ private:
   std::ifstream file_reader_;
 
 private:
-  void ReadCpuInfo(CpuInfo &cpu_info) {
-    file_reader_.open("/proc/stat");
+  std::vector<CpuTimeStamp> ReadCpuStats() {
+    std::ifstream file("/proc/stat");
+    std::vector<CpuTimeStamp> stamps;
     std::string line;
-    std::getline(file_reader_, line);
-    file_reader_.close();
 
-    std::istringstream iss(line);
-    std::string cpu_label;
-    iss >> cpu_label >> cpu_info.user >> cpu_info.nice >> cpu_info.system >>
-        cpu_info.idle >> cpu_info.iowait >> cpu_info.irq >> cpu_info.softirq >>
-        cpu_info.steal >> cpu_info.guest >> cpu_info.guest_nice;
+    while (std::getline(file, line) && line.compare(0, 3, "cpu") == 0) {
+      std::istringstream iss(line);
+      std::string label;
+      unsigned long user, nice, system, idle, iowait, irq, softirq, steal;
+      iss >> label >> user >> nice >> system >> idle >> iowait >> irq >>
+          softirq >> steal;
+
+      stamps.push_back({.idle = idle + iowait,
+                        .total = user + nice + system + idle + iowait + irq +
+                                 softirq + steal,
+                        .time = std::chrono::steady_clock::now()});
+    }
+    return stamps;
   }
 
 public:
-  double GetCpuUsage(unsigned int interval_ms = 100) {
-    CpuInfo cpu_info_first, cpu_info_second;
-    ReadCpuInfo(cpu_info_first);
-    // 等待采样间隔
-    std::this_thread::sleep_for(std::chrono::milliseconds(interval_ms));
-    ReadCpuInfo(cpu_info_second);
-    // 计算差值
-    const auto calculate_diff = [](const CpuInfo &info) {
-      return std::make_pair(info.idle + info.iowait, // idle
-                            info.user + info.nice + info.system + info.irq +
-                                info.softirq + info.steal // non-idle
-      );
-    };
+  double GetCpuUsage() {
+    static std::vector<CpuTimeStamp> prev_stamps = ReadCpuStats();
+    std::this_thread::sleep_for(std::chrono::milliseconds(100)); // 采样间隔
+    auto curr_stamps = ReadCpuStats();
 
-    auto [first_idle, first_non_idle] = calculate_diff(cpu_info_first);
-    auto [second_idle, second_non_idle] = calculate_diff(cpu_info_second);
-
-    unsigned long total_diff =
-        (second_idle + second_non_idle) - (first_idle + first_non_idle);
-    unsigned long idle_diff = second_idle - first_idle;
-
-    if (total_diff == 0) {
+    if (prev_stamps.empty() || curr_stamps.size() != prev_stamps.size()) {
       return 0.0;
     }
-    return static_cast<double>(total_diff - idle_diff) / total_diff * 100.0;
+
+    double total_usage = 0.0;
+    for (size_t i = 0; i < curr_stamps.size(); ++i) {
+      unsigned long total_diff = curr_stamps[i].total - prev_stamps[i].total;
+      unsigned long idle_diff = curr_stamps[i].idle - prev_stamps[i].idle;
+
+      if (total_diff > 0) {
+        total_usage +=
+            (1.0 - static_cast<double>(idle_diff) / total_diff) * 100.0;
+      }
+    }
+    prev_stamps = curr_stamps;               // 更新状态
+    return total_usage / curr_stamps.size(); // 返回多核平均值
   }
 
   /// @brief 获取内存使用率
   /// @return
-  double GetMemUsage() {
-    struct sysinfo info;
-    if (sysinfo(&info) != 0) {
-      return -1;
+  /// @return
+  MemInfo GetMemInfo() {
+    std::ifstream file("/proc/meminfo");
+    std::string line;
+    unsigned long total_kb = 0, free_kb = 0, buffers_kb = 0, cached_kb = 0;
+
+    while (file >> line) {
+      if (line == "MemTotal:")
+        file >> total_kb;
+      else if (line == "MemFree:")
+        file >> free_kb;
+      else if (line == "Buffers:")
+        file >> buffers_kb;
+      else if (line == "Cached:")
+        file >> cached_kb;
     }
 
-    // 转换为double后再进行除法运算
-    double total = static_cast<double>(info.totalram) * info.mem_unit;
-    double free = static_cast<double>(info.freeram) * info.mem_unit;
-    double used = total - free;
+    double total_mb = total_kb / 1024.0;
+    double used_mb = (total_kb - free_kb - buffers_kb - cached_kb) / 1024.0;
+    double usage_percent =
+        (total_kb > 0) ? (used_mb / (total_mb + 1e-9)) * 100.0 : 0.0;
 
-    if (total <= 0)
-      return 0.0; // 避免除以零
-
-    return (used / total) * 100.0;
-  };
-
+    return {total_mb, used_mb, usage_percent};
+  }
   /// @brief 获取设备相关温度信息
   /// @return
   DevTempInfo GetDevTempInfo() {
@@ -169,10 +185,11 @@ public:
 
     // 计算使用率百分比
     if (info.total_bytes > 0) {
-      info.usage = 100.0 * (1.0 - static_cast<double>(info.available_bytes) /
-                                      info.total_bytes);
+      info.usage_percent =
+          100.0 *
+          (1.0 - static_cast<double>(info.available_bytes) / info.total_bytes);
     } else {
-      info.usage = 0.0;
+      info.usage_percent = 0.0;
     }
 
     return info;
