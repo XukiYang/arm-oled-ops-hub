@@ -6,9 +6,24 @@ class UiManager {
 private:
   SSD1315Display ssd1315_display_;
 
-  std::string DoubleToTwoDecimals(double value) {
+  // 温度格式化 (保留2位小数 + 摄氏度符号)
+  std::string FormatTemperatureC(double value) {
+    std::ostringstream oss;
+    oss << std::fixed << std::setprecision(2) << value << "C";
+    return oss.str();
+  }
+
+  // 百分比格式化 (保留2位小数 + 百分号)
+  std::string FormatPercentage(double value) {
     std::ostringstream oss;
     oss << std::fixed << std::setprecision(2) << value << "%";
+    return oss.str();
+  }
+
+  // 存储容量格式化 (整数 + GB单位)
+  std::string FormatStorageGB(double value) {
+    std::ostringstream oss;
+    oss << std::fixed << std::setprecision(0) << value << "GB";
     return oss.str();
   }
 
@@ -44,9 +59,6 @@ public:
     // 绘制边框
     ssd1315_display_.DrawRect(0, 0, ssd1315_display_.Width(),
                               ssd1315_display_.Height(), 1);
-
-    // 绘制温度页
-    // display.DrawString(40, 5, "", 1, 1);
   };
 
   /// @brief 绘制设备温度UI
@@ -68,15 +80,41 @@ public:
     ssd1315_display_.DrawString((128 / 2) + 5, 45, "VE", 1, 1);
 
     // 绘制温度值
-    ssd1315_display_.DrawString(5 + 20, 25, DoubleToTwoDecimals(dev_temp.cpu_t),
+    ssd1315_display_.DrawString(5 + 20, 25, FormatTemperatureC(dev_temp.cpu_t),
                                 1, 1);
-    ssd1315_display_.DrawString(5 + 20, 45, DoubleToTwoDecimals(dev_temp.ddr_t),
+    ssd1315_display_.DrawString(5 + 20, 45, FormatTemperatureC(dev_temp.ddr_t),
                                 1, 1);
     ssd1315_display_.DrawString((128 / 2) + 5 + 20, 25,
-                                DoubleToTwoDecimals(dev_temp.gpu_t), 1, 1);
+                                FormatTemperatureC(dev_temp.gpu_t), 1, 1);
     ssd1315_display_.DrawString((128 / 2) + 5 + 20, 45,
-                                DoubleToTwoDecimals(dev_temp.ve_t), 1, 1);
+                                FormatTemperatureC(dev_temp.ve_t), 1, 1);
 
+    ssd1315_display_.RefreshDisplay();
+  };
+
+  /// @brief 绘制CPU使用率&内存&磁盘页面
+  void DrawDevMemAndDiskAndCpuUsagePage(double cpu_usage, double mem_usage,
+                                        DiskInfo &disk_info) {
+    // 清空显示缓冲区
+    ssd1315_display_.ClearDisplay();
+    // 绘制边框
+    ssd1315_display_.DrawRect(0, 0, ssd1315_display_.Width(),
+                              ssd1315_display_.Height(), 1);
+    // 居中显示标题
+    ssd1315_display_.DrawString((128 / 2) - (5 * 5 / 2), 5, "USAGE", 1, 1);
+
+    ssd1315_display_.DrawString(5, 25, "CPU", 1, 1);
+    ssd1315_display_.DrawString(5, 45, "MEM", 1, 1);
+    ssd1315_display_.DrawString((128 / 2) + 5, 25, "DS", 1, 1);
+    ssd1315_display_.DrawString((128 / 2) + 5, 45, "ALL", 1, 1);
+
+    ssd1315_display_.DrawString(5 + 20, 25, FormatPercentage(cpu_usage), 1, 1);
+    ssd1315_display_.DrawString(5 + 20, 45, FormatPercentage(mem_usage), 1, 1);
+    ssd1315_display_.DrawString((128 / 2) + 5 + 20, 25,
+                                FormatPercentage(disk_info.usage), 1, 1);
+    ssd1315_display_.DrawString(
+        (128 / 2) + 5 + 20, 45,
+        FormatStorageGB(disk_info.total_bytes / 1024 / 1024 / 1024), 1, 1);
     ssd1315_display_.RefreshDisplay();
   };
 
