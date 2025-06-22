@@ -33,6 +33,12 @@ add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
     ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/configs
     COMMENT "Copying configs/*.ini to output/configs directory"
 )
+# 自动打包依赖库
+install(TARGETS arm-oled-ops-hub
+    RUNTIME_DEPENDENCIES
+    PRE_EXCLUDE_REGEXES ".*system.*"
+    DIRECTORIES ${CMAKE_BINARY_DIR}/output/lib
+)
 
 install(DIRECTORY include/ DESTINATION include) # 安装头文件
 install(TARGETS ${PROJECT_NAME} DESTINATION lib) # 安装库
