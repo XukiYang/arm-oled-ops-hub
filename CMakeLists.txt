@@ -10,7 +10,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON) # 生成 compile_commands.json
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/output)
 
 include_directories(include) # 头文件搜索路径
-set(SOURCES main.cpp)
+set(SOURCES src/main.cpp)
 
 add_executable(${PROJECT_NAME} ${SOURCES})
 

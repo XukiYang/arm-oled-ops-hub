@@ -146,6 +146,9 @@ public:
     return dev_temp_info;
   };
 
+  /// @brief 获取磁盘信息
+  /// @param mount_point
+  /// @return
   DiskInfo GetDiskInfo(const std::string &mount_point) {
     struct statvfs vfs;
     if (statvfs(mount_point.c_str(), &vfs) != 0) {
