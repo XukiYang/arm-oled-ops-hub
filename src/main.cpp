@@ -6,6 +6,7 @@
 #include <unistd.h>
 
 int main(int argc, char const *argv[]) {
+  LOG_MSG("device monitor runing!");
   SystemMonitor system_monitor;
   SSD1315Display ssd1315_display("/dev/i2c-3");
   UiManager ui_manager(ssd1315_display);
@@ -13,7 +14,6 @@ int main(int argc, char const *argv[]) {
   sleep(1);
 
   while (true) {
-
     for (uint32_t i = 0; i < 30; i++) {
       auto dev_temp_info = system_monitor.GetDevTempInfo();
       ui_manager.DrawDevTempPage(dev_temp_info);

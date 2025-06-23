@@ -6,6 +6,9 @@
 # sudo systemctl daemon-reload
 # sudo systemctl restart arm-oled-ops-hub
 # sudo systemctl status arm-oled-ops-hub
+# 停止服务
+# sudo systemctl stop arm-oled-ops-hub.service
+
 tag=$(git describe --tags --exact-match 2>/dev/null || echo "unknown")
 cd ./build/version
 tar -xf "arm-oled-ops-hub_$tag.tar.xz" -C /home/orangepi/services/arm-oled-ops-hub
