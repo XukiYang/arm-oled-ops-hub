@@ -67,6 +67,8 @@ private:
   std::ifstream file_reader_;
 
 private:
+  /// @brief 读取CPU状态
+  /// @return
   std::vector<CpuTimeStamp> ReadCpuStats() {
     std::ifstream file("/proc/stat");
     std::vector<CpuTimeStamp> stamps;
@@ -88,6 +90,8 @@ private:
   }
 
 public:
+  /// @brief  获取CPU使用率
+  /// @return
   double GetCpuUsage() {
     static std::vector<CpuTimeStamp> prev_stamps = ReadCpuStats();
     std::this_thread::sleep_for(std::chrono::milliseconds(100)); // 采样间隔

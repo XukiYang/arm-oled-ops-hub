@@ -111,6 +111,8 @@ public:
     ssd1315_display_.RefreshDisplay();
   };
 
+  /// @brief 绘制网络信息页面
+  /// @param net_infos 
   void DrawNetInfosPage(std::vector<NetInfo> &net_infos) {
     // 清空显示缓冲区
     ssd1315_display_.ClearDisplay();
