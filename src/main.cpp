@@ -28,7 +28,9 @@ int main(int argc, char const *argv[]) {
                                                   dev_disk_info);
       std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
+    auto net_infos = system_monitor.GetNetInfo();
+    ui_manager.DrawNetInfosPage(net_infos);
+    std::this_thread::sleep_for(std::chrono::seconds(3));
   }
-
   return 0;
 }

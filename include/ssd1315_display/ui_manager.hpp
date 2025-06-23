@@ -103,10 +103,28 @@ public:
     ssd1315_display_.DrawString(5 + 20, 45,
                                 FormatPercentage(mem_info.usage_percent), 1, 1);
     ssd1315_display_.DrawString((128 / 2) + 5 + 20, 25,
-                                FormatPercentage(disk_info.usage_percent), 1, 1);
+                                FormatPercentage(disk_info.usage_percent), 1,
+                                1);
     ssd1315_display_.DrawString(
         (128 / 2) + 5 + 20, 45,
         FormatStorageGB(disk_info.total_bytes / 1024 / 1024 / 1024), 1, 1);
+    ssd1315_display_.RefreshDisplay();
+  };
+
+  void DrawNetInfosPage(std::vector<NetInfo> &net_infos) {
+    // 清空显示缓冲区
+    ssd1315_display_.ClearDisplay();
+    // 绘制边框
+    ssd1315_display_.DrawRect(0, 0, ssd1315_display_.Width(),
+                              ssd1315_display_.Height(), 1);
+    // 居中显示标题
+    ssd1315_display_.DrawString((128 / 2) - (5 * 3 / 2), 5, "NET", 1, 1);
+    for (uint8_t i = 0; i < net_infos.size(); i++) {
+      ssd1315_display_.DrawString(5, 25 + i * 15, net_infos[i].interface_name,
+                                  1, 1);
+      ssd1315_display_.DrawString(20, 25 + i * 15, net_infos[i].ip, 1, 1);
+      ssd1315_display_.DrawString(60, 25 + i * 15, net_infos[i].family, 1, 1);
+    }
     ssd1315_display_.RefreshDisplay();
   };
 

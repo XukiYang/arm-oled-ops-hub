@@ -2,7 +2,9 @@
 #include <chrono>
 #include <cstdio>
 #include <fstream>
+#include <ifaddrs.h>
 #include <iostream>
+#include <netdb.h>
 #include <sstream>
 #include <string>
 #include <sys/statvfs.h>
@@ -49,6 +51,13 @@ struct MemInfo {
   double total_mb{0};      // 总内存 (MB)
   double used_mb{0};       // 已用内存 (MB)
   double usage_percent{0}; // 使用率百分比(0-100)
+};
+
+/// @brief 网络信息
+struct NetInfo {
+  std::string interface_name;
+  std::string ip;
+  std::string family;
 };
 
 /// @brief 系统监控
@@ -128,6 +137,7 @@ public:
 
     return {total_mb, used_mb, usage_percent};
   }
+
   /// @brief 获取设备相关温度信息
   /// @return
   DevTempInfo GetDevTempInfo() {
@@ -194,6 +204,40 @@ public:
 
     return info;
   };
+
+  std::vector<NetInfo> GetNetInfo() {
+    std::vector<NetInfo> net_infos;
+
+    // 获取网络信息
+    struct ifaddrs *ifaddr, *ifa;
+    if (getifaddrs(&ifaddr) == -1) {
+      perror("getifaddrs");
+      return {};
+    }
+
+    // 遍历网络信息
+    for (ifa = ifaddr; ifa != nullptr; ifa = ifa->ifa_next) {
+      if (ifa->ifa_addr == nullptr)
+        continue;
+
+      int family = ifa->ifa_addr->sa_family;
+      if (family == AF_INET || family == AF_INET6) { // IPv4 or IPv6
+        char host[NI_MAXHOST];
+        int s = getnameinfo(ifa->ifa_addr,
+                            (family == AF_INET) ? sizeof(struct sockaddr_in)
+                                                : sizeof(struct sockaddr_in6),
+                            host, NI_MAXHOST, nullptr, 0, NI_NUMERICHOST);
+        if (s != 0) {
+          std::cerr << "getnameinfo() failed: " << gai_strerror(s) << std::endl;
+          continue;
+        }
+        net_infos.push_back(
+            {ifa->ifa_name, host, (family == AF_INET) ? "IPv4" : "IPv6"});
+      }
+    }
+    freeifaddrs(ifaddr);
+    return net_infos;
+  }
 
 public:
   SystemMonitor(){};
