@@ -1,1 +1,0 @@
-cd ./build && cmake .. && make && cd ./output && echo "orangepi" | sudo -S ./arm-oled-ops-hub
