@@ -187,12 +187,15 @@ public:
       oss << "L" << line << " ";
     ((oss << std::forward<Args>(args)), ...) << "\n";
 
-    std::cout << oss.str();
-
+    // 输出到文件（除了MSG级别）
     if (level != MSG) {
       RotateFileIfNeeded();
       file_manager_.file << oss.str();
+      file_manager_.file.flush();
     }
+    
+    // 同时输出到终端
+    std::cout << oss.str();
   }
 
   void LogPrint(LogLevel level, const char *func, size_t line,
@@ -216,12 +219,15 @@ public:
       oss << "L" << line << " ";
     oss << buffer << "\n";
 
-    std::cout << oss.str();
-
+    // 输出到文件（除了MSG级别）
     if (level != MSG) {
       RotateFileIfNeeded();
       file_manager_.file << oss.str();
+      file_manager_.file.flush();
     }
+    
+    // 同时输出到终端
+    std::cout << oss.str();
   }
   template <typename T>
   void LogVector(LogLevel level, const char *func, size_t line,
@@ -237,13 +243,12 @@ public:
     for (size_t i = 0; i < vector.size(); ++i) {
       if (i != 0) // 首行不加
         oss << ",";
-      if(sizeof(vector[i])==1)
+      if (sizeof(vector[i]) == 1)
         oss << (size_t)vector[i];
-      else  
+      else
         oss << vector[i];
     }
     oss << "\n";
-
     std::cout << oss.str();
   }
 

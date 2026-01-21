@@ -11,6 +11,10 @@
 #include <sys/sysinfo.h>
 #include <thread>
 #include <unordered_map>
+#include <ctime>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 
 /// @brief 温度信息
 struct DevTempInfo {
@@ -60,11 +64,46 @@ struct NetInfo {
   std::string family;
 };
 
+/// @brief 网络流量信息
+struct NetTraffic {
+  std::string interface_name;
+  uint64_t rx_bytes{0};  // 接收字节数
+  uint64_t tx_bytes{0};  // 发送字节数
+  double rx_mbps{0};     // 接收速率(Mbps)
+  double tx_mbps{0};     // 发送速率(Mbps)
+};
+
+/// @brief 系统时间信息
+struct SystemTime {
+  int hour;
+  int minute;
+  int second;
+  int day;
+  int month;
+  int year;
+};
+
+/// @brief CPU频率信息
+struct CpuFreqInfo {
+  double current_mhz{0};
+  double min_mhz{0};
+  double max_mhz{0};
+};
+
+/// @brief 系统负载信息
+struct SystemLoad {
+  double load1{0};   // 1分钟负载
+  double load5{0};   // 5分钟负载
+  double load15{0};  // 15分钟负载
+};
+
 /// @brief 系统监控
 class SystemMonitor {
 
 private:
   std::ifstream file_reader_;
+  std::unordered_map<std::string, NetTraffic> prev_net_traffic_;
+  std::chrono::steady_clock::time_point prev_net_time_;
 
 private:
   /// @brief 读取CPU状态
@@ -243,7 +282,143 @@ public:
     return net_infos;
   }
 
+  /// @brief 获取网络流量信息
+  std::vector<NetTraffic> GetNetTraffic() {
+    std::vector<NetTraffic> traffic_list;
+    std::ifstream file("/proc/net/dev");
+    std::string line;
+
+    // 跳过前两行
+    std::getline(file, line);
+    std::getline(file, line);
+
+    auto current_time = std::chrono::steady_clock::now();
+    double time_diff = std::chrono::duration_cast<std::chrono::milliseconds>(
+                          current_time - prev_net_time_)
+                          .count() / 1000.0;
+
+    while (std::getline(file, line)) {
+      std::istringstream iss(line);
+      std::string iface_name;
+      uint64_t rx_bytes, tx_bytes;
+      uint64_t dummy;
+
+      iface_name.resize(32);
+      if (sscanf(line.c_str(), "%32[^:]: %lu %*lu %*lu %*lu %*lu %*lu %*lu %*lu %lu %*lu %*lu %*lu %*lu %*lu",
+                 &iface_name[0], &rx_bytes, &tx_bytes) >= 2) {
+        // 去除空格
+        iface_name.erase(iface_name.find_last_not_of(" \t") + 1);
+
+        NetTraffic traffic;
+        traffic.interface_name = iface_name;
+        traffic.rx_bytes = rx_bytes;
+        traffic.tx_bytes = tx_bytes;
+
+        // 计算速率
+        if (time_diff > 0.1 && prev_net_traffic_.find(iface_name) != prev_net_traffic_.end()) {
+          auto& prev = prev_net_traffic_[iface_name];
+          double rx_diff = rx_bytes - prev.rx_bytes;
+          double tx_diff = tx_bytes - prev.tx_bytes;
+
+          // 转换为 Mbps (1 byte = 8 bits, 1 Mbps = 1e6 bits/s)
+          traffic.rx_mbps = (rx_diff * 8.0) / (time_diff * 1e6);
+          traffic.tx_mbps = (tx_diff * 8.0) / (time_diff * 1e6);
+        }
+
+        traffic_list.push_back(traffic);
+        prev_net_traffic_[iface_name] = traffic;
+      }
+    }
+
+    prev_net_time_ = current_time;
+    return traffic_list;
+  }
+
+  /// @brief 获取系统时间
+  SystemTime GetSystemTime() {
+    SystemTime st;
+    auto now = std::time(nullptr);
+    auto tm = *std::localtime(&now);
+
+    st.hour = tm.tm_hour;
+    st.minute = tm.tm_min;
+    st.second = tm.tm_sec;
+    st.day = tm.tm_mday;
+    st.month = tm.tm_mon + 1;
+    st.year = tm.tm_year + 1900;
+
+    return st;
+  }
+
+  /// @brief 获取CPU频率信息
+  CpuFreqInfo GetCpuFreq() {
+    CpuFreqInfo freq;
+
+    // 读取当前频率
+    std::ifstream cur_file("/sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq");
+    if (cur_file.is_open()) {
+      uint64_t khz;
+      cur_file >> khz;
+      freq.current_mhz = khz / 1000.0;
+      cur_file.close();
+    }
+
+    // 读取最小频率
+    std::ifstream min_file("/sys/devices/system/cpu/cpu0/cpufreq/scaling_min_freq");
+    if (min_file.is_open()) {
+      uint64_t khz;
+      min_file >> khz;
+      freq.min_mhz = khz / 1000.0;
+      min_file.close();
+    }
+
+    // 读取最大频率
+    std::ifstream max_file("/sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq");
+    if (max_file.is_open()) {
+      uint64_t khz;
+      max_file >> khz;
+      freq.max_mhz = khz / 1000.0;
+      max_file.close();
+    }
+
+    return freq;
+  }
+
+  /// @brief 获取系统负载
+  SystemLoad GetSystemLoad() {
+    SystemLoad load;
+    double loadavg[3];
+
+    if (getloadavg(loadavg, 3) == 3) {
+      load.load1 = loadavg[0];
+      load.load5 = loadavg[1];
+      load.load15 = loadavg[2];
+    }
+
+    return load;
+  }
+
+  /// @brief 获取系统运行时间
+  std::string GetUptime() {
+    struct sysinfo si;
+    if (sysinfo(&si) != 0) {
+      return "N/A";
+    }
+
+    uint64_t total_seconds = si.uptime;
+    uint64_t days = total_seconds / (24 * 3600);
+    uint64_t hours = (total_seconds % (24 * 3600)) / 3600;
+    uint64_t minutes = (total_seconds % 3600) / 60;
+
+    std::ostringstream oss;
+    if (days > 0) {
+      oss << days << "d ";
+    }
+    oss << hours << "h " << minutes << "m";
+    return oss.str();
+  }
+
 public:
-  SystemMonitor(){};
+  SystemMonitor() : prev_net_time_(std::chrono::steady_clock::now()) {};
   ~SystemMonitor(){};
 };

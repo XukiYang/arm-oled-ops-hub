@@ -297,6 +297,177 @@ public:
     SendCommand(contrast); // 对比度值
   }
 
+  /// @brief 绘制圆形
+  /// @param x0 圆心X坐标
+  /// @param y0 圆心Y坐标
+  /// @param r 半径
+  /// @param color 颜色
+  void DrawCircle(int16_t x0, int16_t y0, int16_t r, uint8_t color) {
+    int16_t x = -r, y = 0, err = 2 - 2 * r;
+    do {
+      DrawPixel(x0 - x, y0 + y, color);
+      DrawPixel(x0 - y, y0 - x, color);
+      DrawPixel(x0 + x, y0 - y, color);
+      DrawPixel(x0 + y, y0 + x, color);
+      r = err;
+      if (r <= y) err += ++y * 2 + 1;
+      if (r > x || err > y) err += ++x * 2 + 1;
+    } while (x < 0);
+  }
+
+  /// @brief 绘制填充圆形
+  /// @param x0 圆心X坐标
+  /// @param y0 圆心Y坐标
+  /// @param r 半径
+  /// @param color 颜色
+  void FillCircle(int16_t x0, int16_t y0, int16_t r, uint8_t color) {
+    int16_t x = -r, y = 0, err = 2 - 2 * r;
+    do {
+      for (int16_t i = x0 + x; i <= x0 - x; i++) {
+        DrawPixel(i, y0 + y, color);
+        DrawPixel(i, y0 - y, color);
+      }
+      r = err;
+      if (r <= y) err += ++y * 2 + 1;
+      if (r > x || err > y) err += ++x * 2 + 1;
+    } while (x < 0);
+  }
+
+  /// @brief 绘制进度条
+  /// @param x 左上角X坐标
+  /// @param y 左上角Y坐标
+  /// @param w 宽度
+  /// @param h 高度
+  /// @param progress 进度(0-100)
+  /// @param color 颜色
+  void DrawProgressBar(int16_t x, int16_t y, int16_t w, int16_t h, 
+                       uint8_t progress, uint8_t color) {
+    // 绘制边框
+    DrawRect(x, y, w, h, color);
+    
+    // 计算进度宽度
+    int16_t bar_width = (progress * (w - 2)) / 100;
+    if (bar_width > w - 2) bar_width = w - 2;
+    if (bar_width < 0) bar_width = 0;
+    
+    // 绘制填充部分
+    if (bar_width > 0) {
+      FillRect(x + 1, y + 1, bar_width, h - 2, color);
+    }
+  }
+
+  /// @brief 绘制圆角矩形
+  /// @param x 左上角X坐标
+  /// @param y 左上角Y坐标
+  /// @param w 宽度
+  /// @param h 高度
+  /// @param r 圆角半径
+  /// @param color 颜色
+  void DrawRoundRect(int16_t x, int16_t y, int16_t w, int16_t h, 
+                     int16_t r, uint8_t color) {
+    DrawLine(x + r, y, x + w - r - 1, y, color);
+    DrawLine(x + r, y + h - 1, x + w - r - 1, y + h - 1, color);
+    DrawLine(x, y + r, x, y + h - r - 1, color);
+    DrawLine(x + w - 1, y + r, x + w - 1, y + h - r - 1, color);
+    
+    DrawCircleHelper(x + r, y + r, r, 1, color);
+    DrawCircleHelper(x + w - r - 1, y + r, r, 2, color);
+    DrawCircleHelper(x + w - r - 1, y + h - r - 1, r, 4, color);
+    DrawCircleHelper(x + r, y + h - r - 1, r, 8, color);
+  }
+
+  /// @brief 绘制填充圆角矩形
+  /// @param x 左上角X坐标
+  /// @param y 左上角Y坐标
+  /// @param w 宽度
+  /// @param h 高度
+  /// @param r 圆角半径
+  /// @param color 颜色
+  void FillRoundRect(int16_t x, int16_t y, int16_t w, int16_t h, 
+                     int16_t r, uint8_t color) {
+    FillRect(x + r, y, w - 2 * r, h, color);
+    FillRect(x, y + r, r, h - 2 * r, color);
+    FillRect(x + w - r, y + r, r, h - 2 * r, color);
+    
+    FillCircleHelper(x + r, y + r, r, 1, h - 2 * r + 1, color);
+    FillCircleHelper(x + w - r - 1, y + r, r, 2, h - 2 * r + 1, color);
+  }
+
+  /// @brief 圆形辅助函数
+  void DrawCircleHelper(int16_t x0, int16_t y0, int16_t r, uint8_t cornername, 
+                        uint8_t color) {
+    int16_t f = 1 - r;
+    int16_t ddF_x = 1;
+    int16_t ddF_y = -2 * r;
+    int16_t x = 0;
+    int16_t y = r;
+
+    while (x < y) {
+      if (f >= 0) {
+        y--;
+        ddF_y += 2;
+        f += ddF_y;
+      }
+      x++;
+      ddF_x += 2;
+      f += ddF_x;
+      if (cornername & 0x4) {
+        DrawPixel(x0 + x, y0 + y, color);
+        DrawPixel(x0 + y, y0 + x, color);
+      }
+      if (cornername & 0x2) {
+        DrawPixel(x0 + x, y0 - y, color);
+        DrawPixel(x0 + y, y0 - x, color);
+      }
+      if (cornername & 0x8) {
+        DrawPixel(x0 - y, y0 + x, color);
+        DrawPixel(x0 - x, y0 + y, color);
+      }
+      if (cornername & 0x1) {
+        DrawPixel(x0 - y, y0 - x, color);
+        DrawPixel(x0 - x, y0 - y, color);
+      }
+    }
+  }
+
+  /// @brief 填充圆形辅助函数
+  void FillCircleHelper(int16_t x0, int16_t y0, int16_t r, uint8_t cornername, 
+                        int16_t delta, uint8_t color) {
+    int16_t f = 1 - r;
+    int16_t ddF_x = 1;
+    int16_t ddF_y = -2 * r;
+    int16_t x = 0;
+    int16_t y = r;
+
+    while (x < y) {
+      if (f >= 0) {
+        y--;
+        ddF_y += 2;
+        f += ddF_y;
+      }
+      x++;
+      ddF_x += 2;
+      f += ddF_x;
+
+      if (cornername & 0x1) {
+        DrawLine(x0 - x, y0 + y, x0 - x, y0 + y - delta, color);
+        DrawLine(x0 - y, y0 + x, x0 - y, y0 + x - delta, color);
+      }
+      if (cornername & 0x2) {
+        DrawLine(x0 + x, y0 + y, x0 + x, y0 + y - delta, color);
+        DrawLine(x0 + y, y0 + x, x0 + y, y0 + x - delta, color);
+      }
+      if (cornername & 0x4) {
+        DrawLine(x0 - x, y0 - y + delta, x0 - x, y0 - y, color);
+        DrawLine(x0 - y, y0 - x + delta, x0 - y, y0 - x, color);
+      }
+      if (cornername & 0x8) {
+        DrawLine(x0 + x, y0 - y + delta, x0 + x, y0 - y, color);
+        DrawLine(x0 + y, y0 - x + delta, x0 + y, y0 - x, color);
+      }
+    }
+  }
+
   ~SSD1315Display() {
     // 释放显存缓冲区
     delete[] buffer_;
